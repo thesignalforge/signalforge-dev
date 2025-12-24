@@ -16,8 +16,8 @@
 </p>
 
 <p align="center">
-  A lightweight, beautiful alternative to Docker Desktop.<br>
-  Dark UI with the Signalforge aesthetic.
+  Get started with Docker development in minutes.<br>
+  A lightweight manager with the Signalforge dark aesthetic.
 </p>
 
 ---
