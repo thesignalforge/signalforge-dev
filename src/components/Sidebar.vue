@@ -10,7 +10,10 @@ import {
   ScrollText,
   Settings,
   Server,
-  Cpu
+  Cpu,
+  Globe,
+  ShieldCheck,
+  Link
 } from 'lucide-vue-next'
 
 const route = useRoute()
@@ -33,6 +36,9 @@ const navItems: NavItem[] = [
     badge: () => dockerStore.runningContainers.length || null
   },
   { name: 'Projects', path: '/projects', icon: FolderOpen },
+  { name: 'Nginx', path: '/nginx', icon: Globe },
+  { name: 'SSL Certs', path: '/ssl', icon: ShieldCheck },
+  { name: 'TLD (.sig)', path: '/tld', icon: Link },
   { name: 'Logs', path: '/logs', icon: ScrollText },
   { name: 'Config', path: '/config', icon: Settings },
   { name: 'System', path: '/system', icon: Server }

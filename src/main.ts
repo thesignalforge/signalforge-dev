@@ -13,6 +13,9 @@ const router = createRouter({
     { path: '/', name: 'dashboard', component: Dashboard },
     { path: '/services', name: 'services', component: Services },
     { path: '/projects', name: 'projects', component: () => import('./views/Projects.vue') },
+    { path: '/nginx', name: 'nginx', component: () => import('./views/NginxConfig.vue') },
+    { path: '/ssl', name: 'ssl', component: () => import('./views/SslManager.vue') },
+    { path: '/tld', name: 'tld', component: () => import('./views/TldManager.vue') },
     { path: '/logs', name: 'logs', component: () => import('./views/Logs.vue') },
     { path: '/config', name: 'config', component: () => import('./views/Config.vue') },
     { path: '/system', name: 'system', component: () => import('./views/System.vue') }
