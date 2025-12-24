@@ -24,8 +24,6 @@ jobs:
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: x86_64-unknown-linux-gnu
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -38,11 +36,29 @@ jobs:
       - name: Build Tauri app
         run: npm run tauri build
 
+      - name: List built files
+        run: |
+          echo "=== DEB files ==="
+          find src-tauri/target -name "*.deb" -type f
+          echo "=== RPM files ==="
+          find src-tauri/target -name "*.rpm" -type f
+
       - name: Get version
         id: version
-        run: echo "VERSION=${{ github.event.inputs.version || github.ref_name }}" >> $GITHUB_OUTPUT
+        run: |
+          VERSION="${{ github.event.inputs.version || github.ref_name }}"
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "Using version: $VERSION"
 
-      - name: Create Release
+      - name: Create tag if not exists
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git tag -f ${{ steps.version.outputs.VERSION }}
+          git push origin ${{ steps.version.outputs.VERSION }} --force
+
+      - name: Upload Release Assets
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.VERSION }}
@@ -55,6 +71,7 @@ jobs:
             - **Fedora/RHEL**: `.rpm` package
           draft: false
           prerelease: false
+          fail_on_unmatched_files: true
           files: |
             src-tauri/target/release/bundle/deb/*.deb
             src-tauri/target/release/bundle/rpm/*.rpm
