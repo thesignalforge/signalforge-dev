@@ -16,7 +16,7 @@ permissions:
 
 jobs:
   build:
-    runs-on: self-hosted
+    runs-on: [self-hosted, Linux, X64, signalforge]
 
     steps:
       - name: Checkout repository
