@@ -16,8 +16,8 @@
 </p>
 
 <p align="center">
-  Built to replace XAMPP and be better than Docker Desktop.<br>
-  Beautiful dark UI with the Signalforge aesthetic.
+  A lightweight, beautiful alternative to Docker Desktop.<br>
+  Dark UI with the Signalforge aesthetic.
 </p>
 
 ---
