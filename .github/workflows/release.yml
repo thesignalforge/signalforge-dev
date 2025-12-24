@@ -36,7 +36,7 @@ jobs:
         run: npm ci
 
       - name: Build Tauri app
-        run: npm run tauri build -- --target x86_64-unknown-linux-gnu
+        run: npm run tauri build
 
       - name: Get version
         id: version
@@ -56,7 +56,7 @@ jobs:
           draft: false
           prerelease: false
           files: |
-            src-tauri/target/x86_64-unknown-linux-gnu/release/bundle/deb/*.deb
-            src-tauri/target/x86_64-unknown-linux-gnu/release/bundle/rpm/*.rpm
+            src-tauri/target/release/bundle/deb/*.deb
+            src-tauri/target/release/bundle/rpm/*.rpm
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
