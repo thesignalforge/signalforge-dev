@@ -46,7 +46,8 @@ jobs:
             ## Signalforge Dev Release
 
             Download the appropriate installer for Linux:
-            - **Linux**: `.deb` package or `.AppImage`
+            - **Debian/Ubuntu**: `.deb` package
+            - **Fedora/RHEL**: `.rpm` package
 
             ### What's New
             See the [commit history](https://github.com/${{ github.repository }}/commits/${{ github.event.inputs.version || github.ref_name }}) for changes.
