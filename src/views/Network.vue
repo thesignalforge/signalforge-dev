@@ -11,7 +11,10 @@ import NetworkVisualization from '@/components/NetworkVisualization.vue'
 <style scoped>
 .network-view {
   width: 100%;
-  height: 100%;
-  background: var(--bg-deep);
+  height: calc(100vh - 8rem);
+  min-height: 500px;
+  background: #050810;
+  border-radius: 8px;
+  overflow: hidden;
 }
 </style>

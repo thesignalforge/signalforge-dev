@@ -1,0 +1,21 @@
+# Environment file (contains passwords)
+.env
+
+# SSL certificates
+certs/*.pem
+certs/*.key
+certs/*.crt
+
+# Don't ignore www/index.php (demo file)
+!www/index.php
+
+# Ignore other user files in www
+www/*
+!www/.gitkeep
+!www/index.php
+
+# Database init scripts can be sensitive
+mysql/init/*.sql
+postgres/init/*.sql
+!mysql/init/.gitkeep
+!postgres/init/.gitkeep
