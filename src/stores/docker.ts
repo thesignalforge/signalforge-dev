@@ -3,7 +3,7 @@ import { ref, computed } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 
 // Demo mode - set to true to use mock data
-const DEMO_MODE = true
+const DEMO_MODE = false
 
 export interface ContainerInfo {
   id: string
@@ -238,6 +238,22 @@ export const useDockerStore = defineStore('docker', () => {
     await loadDockerInfo()
   }
 
+  async function getContainerLogs(id: string, tail: number = 100): Promise<string[]> {
+    if (DEMO_MODE) {
+      return [
+        '2024-01-15T10:30:00.000Z [INFO] Container started',
+        '2024-01-15T10:30:01.000Z [INFO] Listening on port 80',
+        '2024-01-15T10:30:02.000Z [INFO] Ready to accept connections',
+      ]
+    }
+    try {
+      return await invoke<string[]>('get_container_logs', { id, tail })
+    } catch (e) {
+      error.value = String(e)
+      throw e
+    }
+  }
+
   return {
     containers,
     dockerInfo,
@@ -258,6 +274,7 @@ export const useDockerStore = defineStore('docker', () => {
     startContainer,
     stopContainer,
     restartContainer,
-    refresh
+    refresh,
+    getContainerLogs
   }
 })

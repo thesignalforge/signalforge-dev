@@ -24,6 +24,7 @@ pub fn run() {
             commands::stop_container,
             commands::restart_container,
             commands::get_container_stats,
+            commands::get_container_logs,
             commands::get_docker_info,
             commands::get_network_topology,
             // Filesystem commands

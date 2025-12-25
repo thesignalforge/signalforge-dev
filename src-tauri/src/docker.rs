@@ -1,6 +1,6 @@
 use bollard::container::{
     ListContainersOptions, StartContainerOptions, StopContainerOptions, RestartContainerOptions,
-    Stats, StatsOptions, InspectContainerOptions,
+    Stats, StatsOptions, InspectContainerOptions, LogsOptions,
 };
 use bollard::models::HealthStatusEnum;
 use bollard::Docker;
@@ -9,6 +9,9 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Mutex;
+
+// Container name prefix for signalforge managed containers
+const SIGNALFORGE_PREFIX: &str = "signalforge-";
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ContainerInfo {
@@ -80,12 +83,17 @@ impl DockerClient {
 
         let container_infos: Vec<ContainerInfo> = containers
             .into_iter()
-            .map(|c| {
+            .filter_map(|c| {
                 let name = c.names
-                    .unwrap_or_default()
-                    .first()
+                    .as_ref()
+                    .and_then(|names| names.first())
                     .map(|n| n.trim_start_matches('/').to_string())
                     .unwrap_or_else(|| "unknown".to_string());
+
+                // Only include signalforge containers
+                if !name.starts_with(SIGNALFORGE_PREFIX) {
+                    return None;
+                }
 
                 let ports = c.ports
                     .unwrap_or_default()
@@ -97,7 +105,7 @@ impl DockerClient {
                     })
                     .collect();
 
-                ContainerInfo {
+                Some(ContainerInfo {
                     id: c.id.unwrap_or_default(),
                     name,
                     image: c.image.unwrap_or_default(),
@@ -105,7 +113,7 @@ impl DockerClient {
                     state: c.state.unwrap_or_default(),
                     created: c.created.unwrap_or(0),
                     ports,
-                }
+                })
             })
             .collect();
 
@@ -134,6 +142,35 @@ impl DockerClient {
             .restart_container(id, Some(RestartContainerOptions { t: 10 }))
             .await
             .map_err(|e| format!("Failed to restart container: {}", e))
+    }
+
+    pub async fn get_container_logs(&self, id: &str, tail: Option<u64>) -> Result<Vec<String>, String> {
+        let docker = self.client.lock().await;
+
+        let options = LogsOptions::<String> {
+            stdout: true,
+            stderr: true,
+            tail: tail.map(|t| t.to_string()).unwrap_or_else(|| "100".to_string()),
+            timestamps: true,
+            ..Default::default()
+        };
+
+        let mut stream = docker.logs(id, Some(options));
+        let mut logs = Vec::new();
+
+        while let Some(result) = stream.next().await {
+            match result {
+                Ok(output) => {
+                    let line = output.to_string();
+                    logs.push(line);
+                }
+                Err(e) => {
+                    return Err(format!("Failed to get logs: {}", e));
+                }
+            }
+        }
+
+        Ok(logs)
     }
 
     pub async fn get_container_stats(&self, id: &str) -> Result<ContainerStats, String> {
@@ -278,6 +315,11 @@ impl DockerClient {
                 .and_then(|names| names.first())
                 .map(|name| name.trim_start_matches('/').to_string())
                 .unwrap_or_else(|| container_id.clone());
+
+            // Only include signalforge containers
+            if !container_name.starts_with(SIGNALFORGE_PREFIX) {
+                continue;
+            }
 
             let inspect = docker
                 .inspect_container(&container_id, None::<InspectContainerOptions>)

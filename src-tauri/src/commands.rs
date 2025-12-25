@@ -83,6 +83,19 @@ pub async fn get_container_stats(
 }
 
 #[tauri::command]
+pub async fn get_container_logs(
+    id: String,
+    tail: Option<u64>,
+    state: State<'_, AppState>,
+) -> Result<Vec<String>, String> {
+    let docker = state.docker.lock().await;
+    match docker.as_ref() {
+        Some(client) => client.get_container_logs(&id, tail).await,
+        None => Err("Docker is not connected".to_string()),
+    }
+}
+
+#[tauri::command]
 pub async fn get_docker_info(state: State<'_, AppState>) -> Result<DockerInfo, String> {
     let docker = state.docker.lock().await;
     match docker.as_ref() {
