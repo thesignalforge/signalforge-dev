@@ -13,7 +13,8 @@ import {
   Cpu,
   Globe,
   ShieldCheck,
-  Link
+  Link,
+  Network
 } from 'lucide-vue-next'
 
 const route = useRoute()
@@ -41,7 +42,8 @@ const navItems: NavItem[] = [
   { name: 'TLD (.sig)', path: '/tld', icon: Link },
   { name: 'Logs', path: '/logs', icon: ScrollText },
   { name: 'Config', path: '/config', icon: Settings },
-  { name: 'System', path: '/system', icon: Server }
+  { name: 'System', path: '/system', icon: Server },
+  { name: 'Network', path: '/network', icon: Network }
 ]
 
 function isActive(path: string) {

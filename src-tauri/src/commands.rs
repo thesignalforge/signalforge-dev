@@ -1,4 +1,4 @@
-use crate::docker::{ContainerInfo, ContainerStats, DockerClient, DockerInfo};
+use crate::docker::{ContainerInfo, ContainerStats, DockerClient, DockerInfo, NetworkTopology};
 use std::sync::Arc;
 use tauri::State;
 use tokio::sync::Mutex;
@@ -87,6 +87,15 @@ pub async fn get_docker_info(state: State<'_, AppState>) -> Result<DockerInfo, S
     let docker = state.docker.lock().await;
     match docker.as_ref() {
         Some(client) => client.get_docker_info().await,
+        None => Err("Docker is not connected".to_string()),
+    }
+}
+
+#[tauri::command]
+pub async fn get_network_topology(state: State<'_, AppState>) -> Result<NetworkTopology, String> {
+    let docker = state.docker.lock().await;
+    match docker.as_ref() {
+        Some(client) => client.get_network_topology().await,
         None => Err("Docker is not connected".to_string()),
     }
 }

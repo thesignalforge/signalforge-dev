@@ -18,7 +18,8 @@ const router = createRouter({
     { path: '/tld', name: 'tld', component: () => import('./views/TldManager.vue') },
     { path: '/logs', name: 'logs', component: () => import('./views/Logs.vue') },
     { path: '/config', name: 'config', component: () => import('./views/Config.vue') },
-    { path: '/system', name: 'system', component: () => import('./views/System.vue') }
+    { path: '/system', name: 'system', component: () => import('./views/System.vue') },
+    { path: '/network', name: 'network', component: () => import('./views/Network.vue') }
   ]
 })
 
