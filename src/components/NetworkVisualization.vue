@@ -34,6 +34,7 @@ interface Impulse {
   startPos: THREE.Vector3
   endPos: THREE.Vector3
   reverse: boolean
+  curve?: THREE.QuadraticBezierCurve3
 }
 
 const networkData = ref<NetworkTopology | null>(null)
@@ -50,6 +51,8 @@ let labelContainer: HTMLDivElement
 
 // Sphere geometry data
 const SPHERE_RADIUS = 8
+const sphereVertices: THREE.Vector3[] = []
+const sphereEdgeIndices: [number, number][] = []
 const sphereEdges: { start: THREE.Vector3; end: THREE.Vector3; line: THREE.Line }[] = []
 const sphereImpulses: Impulse[] = []
 
@@ -78,12 +81,15 @@ async function loadNetworkTopology() {
   }
 }
 
-function createGeodesicSphere(): THREE.Vector3[] {
+function createGeodesicSphere(): void {
+  // Clear previous data
+  sphereVertices.length = 0
+  sphereEdgeIndices.length = 0
+
   // Create icosahedron vertices for geodesic sphere
   const phi = (1 + Math.sqrt(5)) / 2
-  const vertices: THREE.Vector3[] = []
 
-  // Icosahedron base vertices
+  // Icosahedron base vertices (12 vertices)
   const icoVertices = [
     [-1, phi, 0], [1, phi, 0], [-1, -phi, 0], [1, -phi, 0],
     [0, -1, phi], [0, 1, phi], [0, -1, -phi], [0, 1, -phi],
@@ -93,35 +99,44 @@ function createGeodesicSphere(): THREE.Vector3[] {
   // Normalize to sphere radius
   for (const v of icoVertices) {
     const vec = new THREE.Vector3(v[0], v[1], v[2]).normalize().multiplyScalar(SPHERE_RADIUS)
-    vertices.push(vec)
+    sphereVertices.push(vec)
   }
 
-  // Icosahedron faces (triangles)
-  const faces = [
+  // Icosahedron faces (20 triangular faces)
+  const faces: [number, number, number][] = [
     [0, 11, 5], [0, 5, 1], [0, 1, 7], [0, 7, 10], [0, 10, 11],
     [1, 5, 9], [5, 11, 4], [11, 10, 2], [10, 7, 6], [7, 1, 8],
     [3, 9, 4], [3, 4, 2], [3, 2, 6], [3, 6, 8], [3, 8, 9],
     [4, 9, 5], [2, 4, 11], [6, 2, 10], [8, 6, 7], [9, 8, 1]
   ]
 
-  // Subdivide each face once for more vertices
-  const subdividedVertices: THREE.Vector3[] = [...vertices]
-  const edgeMap = new Map<string, number>()
+  // Track edges during subdivision
+  const edgeToMidpoint = new Map<string, number>()
+  const edgeSet = new Set<string>()
+
+  function addEdge(i1: number, i2: number) {
+    const key = i1 < i2 ? `${i1}-${i2}` : `${i2}-${i1}`
+    if (!edgeSet.has(key)) {
+      edgeSet.add(key)
+      sphereEdgeIndices.push([Math.min(i1, i2), Math.max(i1, i2)])
+    }
+  }
 
   function getMidpoint(i1: number, i2: number): number {
     const key = i1 < i2 ? `${i1}-${i2}` : `${i2}-${i1}`
-    if (edgeMap.has(key)) return edgeMap.get(key)!
+    if (edgeToMidpoint.has(key)) return edgeToMidpoint.get(key)!
 
-    const v1 = subdividedVertices[i1]
-    const v2 = subdividedVertices[i2]
+    const v1 = sphereVertices[i1]
+    const v2 = sphereVertices[i2]
     const mid = new THREE.Vector3().addVectors(v1, v2).normalize().multiplyScalar(SPHERE_RADIUS)
-    const idx = subdividedVertices.length
-    subdividedVertices.push(mid)
-    edgeMap.set(key, idx)
+    const idx = sphereVertices.length
+    sphereVertices.push(mid)
+    edgeToMidpoint.set(key, idx)
     return idx
   }
 
-  const newFaces: number[][] = []
+  // Subdivide once to get 42 vertices (12 original + 30 edge midpoints)
+  const newFaces: [number, number, number][] = []
   for (const [a, b, c] of faces) {
     const ab = getMidpoint(a, b)
     const bc = getMidpoint(b, c)
@@ -129,7 +144,12 @@ function createGeodesicSphere(): THREE.Vector3[] {
     newFaces.push([a, ab, ca], [b, bc, ab], [c, ca, bc], [ab, bc, ca])
   }
 
-  return subdividedVertices
+  // Add edges from the subdivided faces
+  for (const [a, b, c] of newFaces) {
+    addEdge(a, b)
+    addEdge(b, c)
+    addEdge(c, a)
+  }
 }
 
 function initThreeJS() {
@@ -187,51 +207,39 @@ function initThreeJS() {
 }
 
 function createSphereWireframe() {
-  const vertices = createGeodesicSphere()
+  // Generate geodesic sphere vertices and edges
+  createGeodesicSphere()
 
-  // Create edges from the geodesic structure
-  const phi = (1 + Math.sqrt(5)) / 2
-  const edgeLength = SPHERE_RADIUS * 2 / phi * 1.2 // Approximate edge length
+  // Create lines from the properly tracked edges
+  for (const [i, j] of sphereEdgeIndices) {
+    const start = sphereVertices[i]
+    const end = sphereVertices[j]
 
-  const addedEdges = new Set<string>()
+    const geometry = new THREE.BufferGeometry().setFromPoints([start, end])
+    const material = new THREE.LineBasicMaterial({
+      color: 0x1a4a5a,
+      transparent: true,
+      opacity: 0.5
+    })
+    const line = new THREE.Line(geometry, material)
+    scene.add(line)
 
-  for (let i = 0; i < vertices.length; i++) {
-    for (let j = i + 1; j < vertices.length; j++) {
-      const dist = vertices[i].distanceTo(vertices[j])
-      if (dist < edgeLength) {
-        const key = `${i}-${j}`
-        if (!addedEdges.has(key)) {
-          addedEdges.add(key)
-
-          // Create line
-          const geometry = new THREE.BufferGeometry().setFromPoints([vertices[i], vertices[j]])
-          const material = new THREE.LineBasicMaterial({
-            color: 0x1a3a4a,
-            transparent: true,
-            opacity: 0.4
-          })
-          const line = new THREE.Line(geometry, material)
-          scene.add(line)
-
-          sphereEdges.push({
-            start: vertices[i].clone(),
-            end: vertices[j].clone(),
-            line
-          })
-        }
-      }
-    }
+    sphereEdges.push({
+      start: start.clone(),
+      end: end.clone(),
+      line
+    })
   }
 
   // Create impulses traveling along sphere edges
-  for (let i = 0; i < 30; i++) {
+  for (let i = 0; i < 20; i++) {
     const edge = sphereEdges[Math.floor(Math.random() * sphereEdges.length)]
     createSphereImpulse(edge.start, edge.end)
   }
 }
 
 function createSphereImpulse(start: THREE.Vector3, end: THREE.Vector3) {
-  const geometry = new THREE.SphereGeometry(0.08, 8, 8)
+  const geometry = new THREE.SphereGeometry(0.04, 8, 8)
   const material = new THREE.MeshBasicMaterial({
     color: 0x00d9ff,
     transparent: true,
@@ -254,15 +262,14 @@ function createSphereImpulse(start: THREE.Vector3, end: THREE.Vector3) {
 function placeContainerNodes() {
   if (!networkData.value) return
 
-  const vertices = createGeodesicSphere()
   const containers = networkData.value.containers
 
-  // Assign containers to vertices
+  // Assign containers to vertices on the geodesic sphere
   containers.forEach((container, index) => {
-    const vertex = vertices[index % vertices.length]
+    const vertex = sphereVertices[index % sphereVertices.length]
 
-    // Main node (white dot) - smaller size
-    const geometry = new THREE.SphereGeometry(0.15, 32, 32)
+    // Main node (white dot) - small size
+    const geometry = new THREE.SphereGeometry(0.06, 16, 16)
     const material = new THREE.MeshBasicMaterial({
       color: 0xffffff,
       transparent: false
@@ -273,7 +280,7 @@ function placeContainerNodes() {
     scene.add(mesh)
 
     // Glow effect - smaller to match node
-    const glowGeometry = new THREE.SphereGeometry(0.25, 32, 32)
+    const glowGeometry = new THREE.SphereGeometry(0.12, 16, 16)
     const glowMaterial = new THREE.MeshBasicMaterial({
       color: 0x00d9ff,
       transparent: true,
@@ -315,52 +322,53 @@ function createConnectionLines() {
 
     if (!fromNode || !toNode) return
 
-    // Create thick line between connected containers
+    // Create curve between connected containers
     const curve = new THREE.QuadraticBezierCurve3(
-      fromNode.position,
+      fromNode.position.clone(),
       new THREE.Vector3(
         (fromNode.position.x + toNode.position.x) / 2,
-        (fromNode.position.y + toNode.position.y) / 2 + 1,
+        (fromNode.position.y + toNode.position.y) / 2 + 1.5,
         (fromNode.position.z + toNode.position.z) / 2
       ),
-      toNode.position
+      toNode.position.clone()
     )
 
-    const points = curve.getPoints(50)
-    const geometry = new THREE.BufferGeometry().setFromPoints(points)
-    const material = new THREE.LineBasicMaterial({
-      color: 0x00d9ff,
+    // Use TubeGeometry for thick lines (linewidth doesn't work in WebGL)
+    const tubeGeometry = new THREE.TubeGeometry(curve, 32, 0.03, 8, false)
+    const tubeMaterial = new THREE.MeshBasicMaterial({
+      color: 0x00ff88,
       transparent: true,
-      opacity: 0.7,
-      linewidth: 2
+      opacity: 0.6
     })
-    const line = new THREE.Line(geometry, material)
-    scene.add(line)
+    const tube = new THREE.Mesh(tubeGeometry, tubeMaterial)
+    scene.add(tube)
 
-    // Create impulses on connection lines
-    for (let i = 0; i < 3; i++) {
-      createConnectionImpulse(fromNode.position, toNode.position)
+    // Create impulses traveling along the connection
+    for (let i = 0; i < 2; i++) {
+      createConnectionImpulse(curve)
     }
   })
 }
 
-function createConnectionImpulse(start: THREE.Vector3, end: THREE.Vector3) {
-  const geometry = new THREE.SphereGeometry(0.12, 8, 8)
+function createConnectionImpulse(curve: THREE.QuadraticBezierCurve3) {
+  const geometry = new THREE.SphereGeometry(0.08, 12, 12)
   const material = new THREE.MeshBasicMaterial({
-    color: 0x00ffaa,
+    color: 0x00ff88,
     transparent: true,
-    opacity: 0.9
+    opacity: 1.0
   })
   const mesh = new THREE.Mesh(geometry, material)
   scene.add(mesh)
 
+  // Store the curve reference for accurate path following
   connectionImpulses.push({
     mesh,
     progress: Math.random(),
-    speed: 0.005 + Math.random() * 0.005,
-    startPos: start.clone(),
-    endPos: end.clone(),
-    reverse: Math.random() > 0.5
+    speed: 0.008 + Math.random() * 0.004,
+    startPos: curve.v0.clone(),
+    endPos: curve.v2.clone(),
+    reverse: Math.random() > 0.5,
+    curve
   })
 }
 
@@ -413,20 +421,11 @@ function updateImpulses() {
       impulse.reverse = true
     }
 
-    // Bezier curve interpolation
-    const mid = new THREE.Vector3(
-      (impulse.startPos.x + impulse.endPos.x) / 2,
-      (impulse.startPos.y + impulse.endPos.y) / 2 + 1,
-      (impulse.startPos.z + impulse.endPos.z) / 2
-    )
-
-    const t = impulse.progress
-    const oneMinusT = 1 - t
-    impulse.mesh.position.set(
-      oneMinusT * oneMinusT * impulse.startPos.x + 2 * oneMinusT * t * mid.x + t * t * impulse.endPos.x,
-      oneMinusT * oneMinusT * impulse.startPos.y + 2 * oneMinusT * t * mid.y + t * t * impulse.endPos.y,
-      oneMinusT * oneMinusT * impulse.startPos.z + 2 * oneMinusT * t * mid.z + t * t * impulse.endPos.z
-    )
+    // Use stored curve for accurate path following
+    if (impulse.curve) {
+      const point = impulse.curve.getPoint(impulse.progress)
+      impulse.mesh.position.copy(point)
+    }
   })
 }
 
